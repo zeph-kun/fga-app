@@ -1,0 +1,19 @@
+# Build artifacts
+backend/dist/
+frontend/.next/
+frontend/out/
+
+# Dependencies
+node_modules/
+
+# Editors
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
