@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 import { FgaService } from '../fga/fga.service';
 import { DOCUMENT_PERMISSIONS, DocumentPermission } from './document-permissions';
 
@@ -17,7 +17,7 @@ export interface DocumentWithPermissionsDto extends DocumentDto {
 @Injectable()
 export class DocumentsService {
   constructor(
-    private readonly db: DatabaseService,
+    private readonly db: PrismaService,
     private readonly fga: FgaService,
   ) {}
 
@@ -43,23 +43,18 @@ export class DocumentsService {
   }
 
   private async listAll(): Promise<DocumentDto[]> {
-    const { rows } = await this.db.query<{
-      id: string;
-      title: string;
-      content: string;
-      folder_id: string | null;
-      folder_name: string | null;
-    }>(
-      `SELECT d.id, d.title, d.content, d.folder_id, f.name AS folder_name
-       FROM documents d
-       LEFT JOIN folders f ON f.id = d.folder_id
-       ORDER BY d.id`,
-    );
-    return rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      content: row.content,
-      folder: row.folder_id ? { id: row.folder_id, name: row.folder_name ?? row.folder_id } : null,
+    const [documents, folders] = await Promise.all([
+      this.db.document.findMany({ orderBy: { id: 'asc' } }),
+      this.db.folder.findMany({ select: { id: true, name: true } }),
+    ]);
+    const folderNames = new Map(folders.map((folder) => [folder.id, folder.name]));
+    return documents.map((doc) => ({
+      id: doc.id,
+      title: doc.title,
+      content: doc.content,
+      folder: doc.folderId
+        ? { id: doc.folderId, name: folderNames.get(doc.folderId) ?? doc.folderId }
+        : null,
     }));
   }
 }

@@ -10,7 +10,7 @@ Voir README.md pour l'architecture détaillée.
   playground sur http://localhost:8084/playground — port dédié depuis OpenFGA v1.14,
   l'API écoute en interne sur 8082 pour que l'iframe du playground la joigne)
 - Backend : NestJS 11, TypeScript strict, client REST OpenFGA maison
-  (`backend/src/fga/openfga.client.ts`), PostgreSQL 17 via `pg` (annuaire + données app)
+  (`backend/src/fga/openfga.client.ts`), PostgreSQL 17 via Prisma (annuaire + données app)
 - Frontend : Next.js 15 App Router, React 19, Tailwind CSS v4, TypeScript strict
 - Auth : Keycloak 26 (realm `fga`), OAuth 2.0 authorization code + PKCE côté Next,
   validation JWT (JWKS + issuer) côté Nest
@@ -48,7 +48,12 @@ Voir README.md pour l'architecture détaillée.
   toucher le store principal `fga` dans les tests.
 - Image OpenFGA distroless : pas de shell, pas de healthcheck CMD-SHELL possible ;
   le client retry jusqu'à disponibilité au bootstrap.
-- Schéma Postgres : `backend/src/database/schema.service.ts` ; `documents.folder_id`
+- Schéma Postgres : `backend/prisma/schema.prisma` (modèles @@map vers les tables
+  minuscules existantes). Migrations versionnées dans `backend/prisma/migrations/`,
+  appliquées au boot par `prisma migrate deploy` (avec baseline automatique sur une base
+  pré-Prisma). Les tables OpenFGA (`store`, `tuple`...) partagent la base : les migrations
+  Prisma ne doivent jamais les toucher. `SchemaService` ne garde que la migration one-shot
+  de l'ancien moteur + le seed si la base est vide ; `documents.folder_id`
   miroir la relation `parent` (affichage uniquement).
 
 ## Conventions code
@@ -57,6 +62,6 @@ Voir README.md pour l'architecture détaillée.
 - Ids en clair : users `alice`..., folders `f-*`, documents `doc-*`, groupes sans préfixe.
   Les usernames Keycloak du realm (`keycloak/fga-realm.json`) doivent matcher les ids FGA.
 - UI en français, code et identifiants en anglais.
-- Ne pas ajouter de dépendance sans nécessité réelle (le projet assume `pg` + fetch natif).
+- Ne pas ajouter de dépendance sans nécessité réelle (le projet assume Prisma + fetch natif).
 - Mots de passe de démo Keycloak : `<user>123` (alice/alice123...). Le client `fga-web`
   a `directAccessGrantsEnabled` uniquement pour les tests automatisés.

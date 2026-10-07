@@ -93,7 +93,16 @@ services:
     volumes:
       - ./backend:/app
       - api_node_modules:/app/node_modules
-    command: sh -c "npm install --no-audit --no-fund && npm run start:dev"
+    # migrate deploy applies pending migrations; on an existing database that
+    # predates Prisma (no _prisma_migrations table) it fails with P3005, so we
+    # baseline by marking the init migration as applied and retry.
+    command: >
+      sh -c "npm install --no-audit --no-fund
+      && npx prisma generate
+      && (npx prisma migrate deploy
+      || (npx prisma migrate resolve --applied 20261007000000_init
+      && npx prisma migrate deploy))
+      && npm run start:dev"
 
   web:
     build: ./frontend

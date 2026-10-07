@@ -1,38 +1,12 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { DatabaseService } from './database.service';
+import { PrismaService } from './prisma.service';
 import { seed } from './seed';
 
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  color TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS groups (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS folders (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS documents (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL DEFAULT '',
-  folder_id TEXT
-);
-
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS folder_id TEXT;
-
-CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents (folder_id);
-
--- One-time migration to OpenFGA: move the parent links from the legacy
--- relation_tuples table into documents.folder_id, then drop the table.
+// Table DDL is owned by prisma/schema.prisma and applied at boot via
+// `prisma db push` (see docker-compose.yml). Only the one-shot migration
+// away from the legacy homemade FGA engine stays here: it moves the parent
+// links from relation_tuples into documents.folder_id, then drops the table.
+const LEGACY_MIGRATION_SQL = `
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'relation_tuples') THEN
@@ -51,13 +25,12 @@ $$;
 
 @Injectable()
 export class SchemaService implements OnModuleInit {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly db: PrismaService) {}
 
   async onModuleInit(): Promise<void> {
-    await this.db.query(SCHEMA_SQL);
+    await this.db.$executeRawUnsafe(LEGACY_MIGRATION_SQL);
 
-    const { rows } = await this.db.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM users');
-    if (rows[0].count === '0') {
+    if ((await this.db.user.count()) === 0) {
       await seed(this.db);
     }
   }

@@ -1,4 +1,4 @@
-import { DatabaseService } from './database.service';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * PostgreSQL seed: directory and app data. Authorization tuples live in
@@ -78,25 +78,16 @@ export const OPENFGA_SEED_TUPLES: { user: string; relation: string; object: stri
   { user: groupMember('design'), relation: 'member', object: 'group:staff' },
 ];
 
-export async function seed(db: DatabaseService): Promise<void> {
-  for (const u of USERS) {
-    await db.query('INSERT INTO users (id, name, email, color) VALUES ($1, $2, $3, $4)', [
-      u.id,
-      u.name,
-      u.email,
-      u.color,
-    ]);
-  }
-  for (const g of GROUPS) {
-    await db.query('INSERT INTO groups (id, name) VALUES ($1, $2)', [g.id, g.name]);
-  }
-  for (const f of FOLDERS) {
-    await db.query('INSERT INTO folders (id, name) VALUES ($1, $2)', [f.id, f.name]);
-  }
-  for (const d of DOCUMENTS) {
-    await db.query(
-      'INSERT INTO documents (id, title, content, folder_id) VALUES ($1, $2, $3, $4)',
-      [d.id, d.title, d.content, d.folderId],
-    );
-  }
+export async function seed(db: PrismaClient): Promise<void> {
+  await db.user.createMany({ data: USERS });
+  await db.group.createMany({ data: GROUPS });
+  await db.folder.createMany({ data: FOLDERS });
+  await db.document.createMany({
+    data: DOCUMENTS.map((d) => ({
+      id: d.id,
+      title: d.title,
+      content: d.content,
+      folderId: d.folderId,
+    })),
+  });
 }

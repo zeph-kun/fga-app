@@ -1,0 +1,46 @@
+// Prisma schema — mirrors the existing PostgreSQL schema exactly.
+// documents.folder_id is a display-only mirror of the OpenFGA `parent`
+// relation (see AGENTS.md): it deliberately carries no foreign key, so
+// FGA tuples may reference folders unknown to the directory table.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String @id
+  name  String
+  email String @unique
+  color String
+
+  @@map("users")
+}
+
+model Group {
+  id   String @id
+  name String
+
+  @@map("groups")
+}
+
+model Folder {
+  id   String @id
+  name String
+
+  @@map("folders")
+}
+
+model Document {
+  id       String  @id
+  title    String
+  content  String  @default("")
+  folderId String? @map("folder_id")
+
+  @@index([folderId])
+  @@map("documents")
+}

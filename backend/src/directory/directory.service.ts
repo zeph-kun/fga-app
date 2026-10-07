@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 import { FgaService } from '../fga/fga.service';
 
 export interface UserDto {
@@ -23,22 +23,25 @@ export interface FolderDto {
 @Injectable()
 export class DirectoryService {
   constructor(
-    private readonly db: DatabaseService,
+    private readonly db: PrismaService,
     private readonly fga: FgaService,
   ) {}
 
   async listUsers(): Promise<UserDto[]> {
-    const { rows } = await this.db.query<UserDto>('SELECT id, name, email, color FROM users ORDER BY id');
-    return rows;
+    return this.db.user.findMany({
+      orderBy: { id: 'asc' },
+      select: { id: true, name: true, email: true, color: true },
+    });
   }
 
   /** Group members come from OpenFGA tuples (single source of truth). */
   async listGroups(): Promise<GroupDto[]> {
-    const { rows } = await this.db.query<{ id: string; name: string }>(
-      'SELECT id, name FROM groups ORDER BY id',
-    );
-    const groups = await Promise.all(
-      rows.map(async (group) => {
+    const groups = await this.db.group.findMany({
+      orderBy: { id: 'asc' },
+      select: { id: true, name: true },
+    });
+    return Promise.all(
+      groups.map(async (group) => {
         const tuples = await this.fga.listTuples('group', group.id);
         return {
           id: group.id,
@@ -52,11 +55,12 @@ export class DirectoryService {
         };
       }),
     );
-    return groups;
   }
 
   async listFolders(): Promise<FolderDto[]> {
-    const { rows } = await this.db.query<FolderDto>('SELECT id, name FROM folders ORDER BY id');
-    return rows;
+    return this.db.folder.findMany({
+      orderBy: { id: 'asc' },
+      select: { id: true, name: true },
+    });
   }
 }

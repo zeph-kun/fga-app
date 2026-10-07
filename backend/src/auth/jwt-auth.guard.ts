@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Request } from 'express';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 
 export interface AuthenticatedUser {
   /** FGA user id — Keycloak preferred_username. */
@@ -28,7 +28,7 @@ export class JwtAuthGuard implements CanActivate {
   private readonly issuer: string;
   private readonly allowedClients: Set<string>;
 
-  constructor(private readonly db: DatabaseService) {
+  constructor(private readonly db: PrismaService) {
     this.issuer = process.env.KEYCLOAK_ISSUER ?? 'http://localhost:8180/realms/fga';
     const jwksUrl =
       process.env.KEYCLOAK_JWKS_URL ?? 'http://keycloak:8080/realms/fga/protocol/openid-connect/certs';
@@ -82,11 +82,9 @@ export class JwtAuthGuard implements CanActivate {
   private async ensureDirectoryEntry(user: AuthenticatedUser): Promise<void> {
     const color = AVATAR_COLORS[[...user.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % AVATAR_COLORS.length];
     try {
-      await this.db.query(
-        `INSERT INTO users (id, name, email, color) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (id) DO NOTHING`,
-        [user.id, user.name, user.email, color],
-      );
+      await this.db.user.create({
+        data: { id: user.id, name: user.name, email: user.email, color },
+      });
     } catch {
       // The id already exists, or the email collides with another row: the
       // directory entry is a convenience, never a security boundary.

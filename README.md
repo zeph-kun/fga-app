@@ -133,7 +133,7 @@ héritage par dossiers, delete non hérité, écriture/suppression idempotentes.
 
 ```text
 backend/
-  src/database/       pool pg, schéma (+ migration one-shot vers OpenFGA), seed
+  src/database/       Prisma (client + migrations), migration one-shot vers OpenFGA, seed
   src/fga/            client REST OpenFGA (openfga.client), service + explication,
                       model/ (JSON déployé + DSL), tests d'intégration
   src/auth/           guard JWT Keycloak
