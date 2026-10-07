@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: fga-postgres
+    environment:
+      POSTGRES_USER: fga
+      POSTGRES_PASSWORD: fga_dev_password
+      POSTGRES_DB: fga
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fga -d fga"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: fga-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Public URL advertised to browsers; containers reach keycloak internally at keycloak:8080.
+      KC_HOSTNAME: http://localhost:8180
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./keycloak/fga-realm.json:/opt/keycloak/data/import/fga-realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/fga HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q 'HTTP/1.1 200' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build: ./backend
+    container_name: fga-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://fga:fga_dev_password@postgres:5432/fga
+      PORT: "3000"
+      # Split-horizon: validate against the public issuer, fetch JWKS over the internal URL.
+      KEYCLOAK_ISSUER: http://localhost:8180/realms/fga
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/fga/protocol/openid-connect/certs
+      KEYCLOAK_ALLOWED_CLIENTS: fga-web
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./backend:/app
+      - api_node_modules:/app/node_modules
+    command: sh -c "npm install --no-audit --no-fund && npm run start:dev"
+
+  web:
+    build: ./frontend
+    container_name: fga-web
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      API_INTERNAL_URL: http://api:3000
+      APP_URL: http://localhost:3000
+      # Browser-facing OAuth URLs (public) vs server-to-server URLs (internal).
+      KEYCLOAK_PUBLIC_URL: http://localhost:8180
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_REALM: fga
+      KEYCLOAK_CLIENT_ID: fga-web
+      KEYCLOAK_CLIENT_SECRET: fga-web-secret
+      AUTH_SECRET: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+      - web_next_cache:/app/.next
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+
+volumes:
+  pgdata:
+  api_node_modules:
+  web_node_modules:
+  web_next_cache:
