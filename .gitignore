@@ -2,6 +2,7 @@
 backend/dist/
 frontend/.next/
 frontend/out/
+*.tsbuildinfo
 
 # Dependencies
 node_modules/
