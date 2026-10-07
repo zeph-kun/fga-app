@@ -10,7 +10,7 @@ Petite application de démonstration de FGA (Fine-Grained Authorization) constru
 |---|---|---|
 | Frontend | Next.js 15 (App Router, React 19, Tailwind CSS v4, TypeScript strict) | http://localhost:3000 |
 | API | NestJS 11, TypeScript strict, class-validator | http://localhost:3001 |
-| Moteur d'autorisation | OpenFGA v1.22 (REST, playground) | http://localhost:8082 |
+| Moteur d'autorisation | OpenFGA v1.22 (REST) | http://localhost:8082 |
 | Auth | Keycloak 26 (realm `fga`, OAuth 2.0 code + PKCE) | http://localhost:8180 |
 | Base | PostgreSQL 17 (données app + stockage OpenFGA) | localhost:5433 |
 
@@ -146,7 +146,9 @@ frontend/
 
 ## OpenFGA
 
-- Playground : http://localhost:8082/playground (store `fga`, modèle du projet)
+- Playground : http://localhost:8084/playground (port dédié depuis OpenFGA v1.14 ;
+  l'API doit rester joignable sur localhost:8082 pour l'iframe, cf. `OPENFGA_HTTP_ADDR`
+  dans docker-compose.yml) (store `fga`, modèle du projet)
 - API REST : http://localhost:8082 (stores, checks, writes — voir `openfga.client.ts`)
 - Stockage : tables OpenFGA dans notre base PostgreSQL (ok pour la démo ; en prod,
   préférer une base dédiée)

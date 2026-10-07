@@ -60,9 +60,14 @@ services:
       OPENFGA_DATASTORE_ENGINE: postgres
       OPENFGA_DATASTORE_URI: postgres://fga:fga_dev_password@postgres:5432/fga?sslmode=disable
       OPENFGA_PLAYGROUND_ENABLED: "true"
+      # The playground iframe only reaches the API on localhost:<this port>, so the
+      # in-container HTTP port must match the published host port (8082).
+      OPENFGA_HTTP_ADDR: 0.0.0.0:8082
+      OPENFGA_PLAYGROUND_ADDR: 0.0.0.0:3000
     ports:
-      - "8082:8080"
+      - "8082:8082"
       - "8083:8081"
+      - "8084:3000"
 
   api:
     build: ./backend
@@ -77,7 +82,7 @@ services:
     environment:
       DATABASE_URL: postgres://fga:fga_dev_password@postgres:5432/fga
       PORT: "3000"
-      OPENFGA_URL: http://openfga:8080
+      OPENFGA_URL: http://openfga:8082
       OPENFGA_STORE_NAME: fga
       # Split-horizon: validate against the public issuer, fetch JWKS over the internal URL.
       KEYCLOAK_ISSUER: http://localhost:8180/realms/fga

@@ -97,18 +97,21 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
   const directTuples = tuples.filter((tuple) => tuple.relation !== 'parent');
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-      <div className="mb-4 flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+    <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-5 shadow-lg shadow-slate-950/30 backdrop-blur-sm">
+      <div className="mb-4 flex min-w-0 items-baseline justify-between gap-2">
+        <h2 className="flex shrink-0 items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+          <span className="h-4 w-1 rounded-full bg-sky-400" aria-hidden />
           Partages
         </h2>
-        <span className="truncate text-xs text-slate-500">{document.title}</span>
+        <span className="truncate text-xs text-slate-500" title={document.title}>
+          {document.title}
+        </span>
       </div>
 
       {!canShare && (
-        <p className="mb-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-          Vous n&apos;avez pas la permission <span className="font-mono">share</span> sur ce document.
-          L&apos;API refuserait toute modification.
+        <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300">
+          Vous n&apos;avez pas la permission <span className="font-mono">share</span> sur ce
+          document. L&apos;API refuserait toute modification.
         </p>
       )}
 
@@ -118,27 +121,40 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
           .map((tuple) => (
             <li
               key={`${tuple.relation}:${tuple.subject.namespace}:${tuple.subject.id}`}
-              className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-400"
+              className="flex items-start gap-2 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-400"
             >
-              parent : {tuple.subject.namespace}:{tuple.subject.id} (héritage des permissions)
+              <svg viewBox="0 0 24 24" fill="none" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden>
+                <path
+                  d="M12 3v7m0 0l3-3m-3 3L9 7M5 13c0 4 3 7 7 8 4-1 7-4 7-8"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="min-w-0 break-all">
+                parent : {tuple.subject.namespace}:{tuple.subject.id} (héritage des permissions)
+              </span>
             </li>
           ))}
         {directTuples.map((tuple) => (
           <li
             key={`${tuple.relation}:${subjectLabel(tuple)}`}
-            className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs"
+            className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs"
           >
-            <span>
-              <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300">
                 {tuple.relation}
-              </span>{' '}
-              <span className="text-slate-400">{subjectLabel(tuple)}</span>
+              </span>
+              <span className="min-w-0 truncate text-slate-400" title={subjectLabel(tuple)}>
+                {subjectLabel(tuple)}
+              </span>
             </span>
             <button
               type="button"
               disabled={!canShare || busy}
               onClick={() => void revoke(tuple)}
-              className="rounded px-2 py-0.5 text-rose-400 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+              className="shrink-0 rounded px-2 py-0.5 text-rose-400 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               révoquer
             </button>
@@ -149,13 +165,13 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
         )}
       </ul>
 
-      <div className="flex flex-col gap-2 border-t border-slate-800 pt-4">
+      <div className="flex flex-col gap-2 border-t border-slate-800/80 pt-4">
         <div className="flex gap-2">
           <select
             value={relation}
             onChange={(event) => setRelation(event.target.value)}
             disabled={!canShare || busy}
-            className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-100 focus:border-slate-400 focus:outline-none disabled:opacity-50"
+            className="w-28 shrink-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 font-mono text-xs text-slate-100 transition focus:border-emerald-400/60 focus:outline-none disabled:opacity-50"
           >
             {GRANTABLE_RELATIONS.map((r) => (
               <option key={r} value={r}>
@@ -167,7 +183,7 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
             value={subjectValue}
             onChange={(event) => setSubjectValue(event.target.value)}
             disabled={!canShare || busy}
-            className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-100 focus:border-slate-400 focus:outline-none disabled:opacity-50"
+            className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-100 transition focus:border-emerald-400/60 focus:outline-none disabled:opacity-50"
           >
             <option value="">Accorder à...</option>
             <optgroup label="Utilisateurs">
@@ -190,13 +206,15 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
           type="button"
           onClick={() => void grant()}
           disabled={!canShare || busy || !subjectValue}
-          className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-violet-950 transition hover:bg-violet-400 disabled:opacity-40"
+          className="rounded-lg bg-gradient-to-r from-violet-400 to-violet-500 px-4 py-2 text-sm font-semibold text-violet-950 shadow-lg shadow-violet-500/20 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
         >
           Accorder
         </button>
       </div>
 
-      {error && <p className="mt-3 text-sm text-rose-400">{error}</p>}
+      {error && (
+        <p className="mt-3 break-words text-sm text-rose-400">{error}</p>
+      )}
     </div>
   );
 }

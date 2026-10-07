@@ -7,14 +7,15 @@ Voir README.md pour l'architecture détaillée.
 ## Stack — ne pas changer sans accord explicite
 
 - Moteur d'autorisation : **OpenFGA v1.22** (REST, stockage dans notre PostgreSQL,
-  playground sur http://localhost:8082/playground)
+  playground sur http://localhost:8084/playground — port dédié depuis OpenFGA v1.14,
+  l'API écoute en interne sur 8082 pour que l'iframe du playground la joigne)
 - Backend : NestJS 11, TypeScript strict, client REST OpenFGA maison
   (`backend/src/fga/openfga.client.ts`), PostgreSQL 17 via `pg` (annuaire + données app)
 - Frontend : Next.js 15 App Router, React 19, Tailwind CSS v4, TypeScript strict
 - Auth : Keycloak 26 (realm `fga`), OAuth 2.0 authorization code + PKCE côté Next,
   validation JWT (JWKS + issuer) côté Nest
 - Conteneurs : Docker Compose uniquement — **rien ne s'installe en local**
-- Ports : web 3000, api 3001, postgres 5433, keycloak 8180, openfga 8082 (API+playground)
+- Ports : web 3000, api 3001, postgres 5433, keycloak 8180, openfga 8082 (API) et 8084 (playground)
 
 ## Commandes (depuis la racine du projet)
 
