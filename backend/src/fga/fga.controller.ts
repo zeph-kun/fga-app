@@ -1,5 +1,7 @@
 import { Body, Controller, Delete, Get, Post, Query, Req } from '@nestjs/common';
-import { CheckRequestDto, CreateTupleDto, DeleteTupleDto } from './dto';
+import { CheckRequestDto } from './dto/check-request.dto';
+import { CreateTupleDto } from './dto/create-tuple.dto';
+import { DeleteTupleDto } from './dto/delete-tuple.dto';
 import { FgaService } from './fga.service';
 import { RequestWithUser } from '../auth/jwt-auth.guard';
 
