@@ -23,23 +23,30 @@ CREATE TABLE IF NOT EXISTS folders (
 CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
-  content TEXT NOT NULL DEFAULT ''
+  content TEXT NOT NULL DEFAULT '',
+  folder_id TEXT
 );
 
-CREATE TABLE IF NOT EXISTS relation_tuples (
-  id BIGSERIAL PRIMARY KEY,
-  namespace TEXT NOT NULL,
-  object_id TEXT NOT NULL,
-  relation TEXT NOT NULL,
-  subject_type TEXT NOT NULL,
-  subject_id TEXT NOT NULL,
-  subject_namespace TEXT NOT NULL DEFAULT '',
-  subject_relation TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (namespace, object_id, relation, subject_type, subject_id, subject_namespace, subject_relation)
-);
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS folder_id TEXT;
 
-CREATE INDEX IF NOT EXISTS idx_tuples_object ON relation_tuples (namespace, object_id, relation);
+CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents (folder_id);
+
+-- One-time migration to OpenFGA: move the parent links from the legacy
+-- relation_tuples table into documents.folder_id, then drop the table.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'relation_tuples') THEN
+    UPDATE documents d
+    SET folder_id = p.subject_id
+    FROM relation_tuples p
+    WHERE p.namespace = 'document'
+      AND p.object_id = d.id
+      AND p.relation = 'parent'
+      AND p.subject_type = 'object';
+    DROP TABLE relation_tuples;
+  END IF;
+END
+$$;
 `;
 
 @Injectable()

@@ -36,6 +36,34 @@ services:
       timeout: 5s
       retries: 30
 
+  openfga-migrate:
+    image: openfga/openfga:v1.22.0
+    container_name: fga-openfga-migrate
+    command: >
+      migrate --datastore-engine postgres
+      --datastore-uri 'postgres://fga:fga_dev_password@postgres:5432/fga?sslmode=disable'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  openfga:
+    image: openfga/openfga:v1.22.0
+    container_name: fga-openfga
+    command: run
+    depends_on:
+      postgres:
+        condition: service_healthy
+      openfga-migrate:
+        condition: service_completed_successfully
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://fga:fga_dev_password@postgres:5432/fga?sslmode=disable
+      OPENFGA_PLAYGROUND_ENABLED: "true"
+    ports:
+      - "8082:8080"
+      - "8083:8081"
+
   api:
     build: ./backend
     container_name: fga-api
@@ -44,9 +72,13 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      openfga:
+        condition: service_started
     environment:
       DATABASE_URL: postgres://fga:fga_dev_password@postgres:5432/fga
       PORT: "3000"
+      OPENFGA_URL: http://openfga:8080
+      OPENFGA_STORE_NAME: fga
       # Split-horizon: validate against the public issuer, fetch JWKS over the internal URL.
       KEYCLOAK_ISSUER: http://localhost:8180/realms/fga
       KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/fga/protocol/openid-connect/certs

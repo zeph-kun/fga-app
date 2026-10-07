@@ -130,10 +130,10 @@ export default function PermissionChecker({ users, documents, folders, defaultUs
           </div>
           <div className="mt-3 rounded-lg bg-slate-950 p-3">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              Trace d&apos;évaluation
+              Explication
             </p>
             <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-slate-300">
-              {result.trace.join('\n')}
+              {result.explanation.length > 0 ? result.explanation.join('\n') : '(aucun chemin trouvé)'}
             </pre>
           </div>
         </div>

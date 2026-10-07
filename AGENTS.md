@@ -1,16 +1,20 @@
 # AGENTS.md — FGA Playground
 
-Démo Fine-Grained Authorization (modèle Zanzibar-lite) avec documents, dossiers, groupes et
-permissions héritées. Voir README.md pour l'architecture détaillée.
+Démo Fine-Grained Authorization : **OpenFGA** (produit open-source inspiré de Zanzibar)
+derrière une API NestJS, avec documents, dossiers, groupes et permissions héritées.
+Voir README.md pour l'architecture détaillée.
 
 ## Stack — ne pas changer sans accord explicite
 
-- Backend : NestJS 11, TypeScript strict, PostgreSQL 17 via `pg` (SQL brut, pas d'ORM)
+- Moteur d'autorisation : **OpenFGA v1.22** (REST, stockage dans notre PostgreSQL,
+  playground sur http://localhost:8082/playground)
+- Backend : NestJS 11, TypeScript strict, client REST OpenFGA maison
+  (`backend/src/fga/openfga.client.ts`), PostgreSQL 17 via `pg` (annuaire + données app)
 - Frontend : Next.js 15 App Router, React 19, Tailwind CSS v4, TypeScript strict
 - Auth : Keycloak 26 (realm `fga`), OAuth 2.0 authorization code + PKCE côté Next,
   validation JWT (JWKS + issuer) côté Nest
 - Conteneurs : Docker Compose uniquement — **rien ne s'installe en local**
-- Ports : web 3000, api 3001, postgres 5433, keycloak 8180
+- Ports : web 3000, api 3001, postgres 5433, keycloak 8180, openfga 8082 (API+playground)
 
 ## Commandes (depuis la racine du projet)
 
@@ -24,24 +28,27 @@ permissions héritées. Voir README.md pour l'architecture détaillée.
 
 ## Règles du projet
 
+- **Autorisation** : toute décision passe par OpenFGA (`client.check`). Jamais de logique
+  de droits en SQL, dans l'UI, ou dans un moteur maison — l'ancien moteur a été supprimé.
+- **Modèle** : `backend/src/fga/model/openfga-model.json` (format metadata requis par
+  OpenFGA récent — les types inline dans `this` sont refusés). Le DSL équivalent lisible
+  est dans `model.fga` : mettre les deux à jour ensemble. Le modèle est re-poussé à
+  chaque boot de l'API ; le seed ne s'applique que si le store est vide.
+- **Tuples** : identifiés par leur clé (user, relation, object) — pas d'id. L'API DELETE
+  `/tuples` prend le tuple complet dans le body. Écriture toujours via `FgaService`
+  (garde `share` côté API, 403 sinon).
+- **Explication** : OpenFGA n'a pas d'API de trace ; `/check` renvoie `explanation`
+  reconstruit par checks récursifs (relations directes → groupes → héritage parent).
+  Garder ces lignes courtes et lisibles.
 - **Auth** : l'identité vient TOUJOURS du token Keycloak (guard global `backend/src/auth/`),
-  jamais d'un paramètre de requête (`userId`, `actingUser` interdits dans les DTO).
-  Le token d'accès ne touche jamais le navigateur : le proxy Next `/api/fga/*`
-  (`frontend/src/app/api/fga/`) l'attache côté serveur depuis la session chiffrée httpOnly.
-  Keycloak est joignable sous 2 URLs : `localhost:8180` (navigateur) et `keycloak:8080`
-  (conteneurs) — voir `KC_HOSTNAME` et les variables `KEYCLOAK_*` du compose.
-- Toute décision d'autorisation passe par le moteur FGA (`backend/src/fga/`) : jamais de
-  filtrage de droits en SQL brut, en clause WHERE ou dans l'UI. L'UI reflète, l'API impose.
-- Le modèle de permissions (unions, réécritures, héritage) se définit uniquement dans
-  `backend/src/fga/config.ts`. `delete` n'est volontairement pas hérité du dossier parent.
-- Le moteur doit rester testable sans base : dépendre de l'interface `TupleRepository`,
-  tests sur `InMemoryTupleRepository`, pas d'import de `pg` dans `engine.ts`.
-- Les traces d'évaluation (`trace` de `/check`) sont une fonctionnalité visible du produit :
-  garder chaque ligne courte et lisible.
-- Schéma : `backend/src/database/schema.service.ts` ; données de démo : `seed.ts`
-  (le seed ne tourne que si la table `users` est vide).
-- Écriture de tuples : toujours via `FgaService` (garde `share` côté API, 403 sinon),
-  jamais de INSERT direct sur `relation_tuples`.
+  jamais d'un paramètre de requête. Le token d'accès ne touche jamais le navigateur :
+  le proxy Next `/api/fga/*` l'attache côté serveur depuis la session chiffrée httpOnly.
+- **Tests** : `openfga-integration.spec.ts` crée un store jetable par suite — ne jamais
+  toucher le store principal `fga` dans les tests.
+- Image OpenFGA distroless : pas de shell, pas de healthcheck CMD-SHELL possible ;
+  le client retry jusqu'à disponibilité au bootstrap.
+- Schéma Postgres : `backend/src/database/schema.service.ts` ; `documents.folder_id`
+  miroir la relation `parent` (affichage uniquement).
 
 ## Conventions code
 

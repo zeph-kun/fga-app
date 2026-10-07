@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
-import { CheckRequestDto, CreateTupleDto } from './dto';
+import { Body, Controller, Delete, Get, Post, Query, Req } from '@nestjs/common';
+import { CheckRequestDto, CreateTupleDto, DeleteTupleDto } from './dto';
 import { FgaService } from './fga.service';
 import { RequestWithUser } from '../auth/jwt-auth.guard';
 
@@ -23,8 +23,9 @@ export class FgaController {
     return this.fga.createTuple(request.user.id, { namespace, objectId, relation, subject });
   }
 
-  @Delete('tuples/:id')
-  deleteTuple(@Req() request: RequestWithUser, @Param('id', ParseIntPipe) id: number) {
-    return this.fga.deleteTuple(request.user.id, id);
+  @Delete('tuples')
+  deleteTuple(@Req() request: RequestWithUser, @Body() dto: DeleteTupleDto) {
+    const { namespace, objectId, relation, subject } = dto;
+    return this.fga.deleteTuple(request.user.id, { namespace, objectId, relation, subject });
   }
 }

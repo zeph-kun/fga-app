@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user",
+      "relations": {}
+    },
+    {
+      "type": "group",
+      "relations": {
+        "member": { "this": {} }
+      },
+      "metadata": {
+        "relations": {
+          "member": {
+            "directly_related_user_types": [
+              { "type": "user" },
+              { "type": "group", "relation": "member" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "folder",
+      "relations": {
+        "owner": { "this": {} },
+        "editor": { "this": {} },
+        "viewer": { "this": {} },
+        "parent": { "this": {} },
+        "view": {
+          "union": {
+            "child": [
+              { "computedUserset": { "relation": "viewer" } },
+              { "computedUserset": { "relation": "editor" } },
+              { "computedUserset": { "relation": "owner" } },
+              { "tupleToUserset": { "tupleset": { "relation": "parent" }, "computedUserset": { "relation": "view" } } }
+            ]
+          }
+        },
+        "edit": {
+          "union": {
+            "child": [
+              { "computedUserset": { "relation": "editor" } },
+              { "computedUserset": { "relation": "owner" } },
+              { "tupleToUserset": { "tupleset": { "relation": "parent" }, "computedUserset": { "relation": "edit" } } }
+            ]
+          }
+        },
+        "share": {
+          "union": {
+            "child": [
+              { "computedUserset": { "relation": "owner" } },
+              { "tupleToUserset": { "tupleset": { "relation": "parent" }, "computedUserset": { "relation": "share" } } }
+            ]
+          }
+        },
+        "delete": { "computedUserset": { "relation": "owner" } }
+      },
+      "metadata": {
+        "relations": {
+          "owner": { "directly_related_user_types": [{ "type": "user" }] },
+          "editor": {
+            "directly_related_user_types": [{ "type": "user" }, { "type": "group", "relation": "member" }]
+          },
+          "viewer": {
+            "directly_related_user_types": [{ "type": "user" }, { "type": "group", "relation": "member" }]
+          },
+          "parent": { "directly_related_user_types": [{ "type": "folder" }] }
+        }
+      }
+    },
+    {
+      "type": "document",
+      "relations": {
+        "owner": { "this": {} },
+        "editor": { "this": {} },
+        "viewer": { "this": {} },
+        "parent": { "this": {} },
+        "view": {
+          "union": {
+            "child": [
+              { "computedUserset": { "relation": "viewer" } },
+              { "computedUserset": { "relation": "editor" } },
+              { "computedUserset": { "relation": "owner" } },
+              { "tupleToUserset": { "tupleset": { "relation": "parent" }, "computedUserset": { "relation": "view" } } }
+            ]
+          }
+        },
+        "edit": {
+          "union": {
+            "child": [
+              { "computedUserset": { "relation": "editor" } },
+              { "computedUserset": { "relation": "owner" } },
+              { "tupleToUserset": { "tupleset": { "relation": "parent" }, "computedUserset": { "relation": "edit" } } }
+            ]
+          }
+        },
+        "share": {
+          "union": {
+            "child": [
+              { "computedUserset": { "relation": "owner" } },
+              { "tupleToUserset": { "tupleset": { "relation": "parent" }, "computedUserset": { "relation": "share" } } }
+            ]
+          }
+        },
+        "delete": { "computedUserset": { "relation": "owner" } }
+      },
+      "metadata": {
+        "relations": {
+          "owner": { "directly_related_user_types": [{ "type": "user" }] },
+          "editor": {
+            "directly_related_user_types": [{ "type": "user" }, { "type": "group", "relation": "member" }]
+          },
+          "viewer": {
+            "directly_related_user_types": [{ "type": "user" }, { "type": "group", "relation": "member" }]
+          },
+          "parent": { "directly_related_user_types": [{ "type": "folder" }] }
+        }
+      }
+    }
+  ]
+}

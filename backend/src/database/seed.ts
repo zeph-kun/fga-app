@@ -1,5 +1,10 @@
 import { DatabaseService } from './database.service';
-import { TupleSubject } from '../fga/model';
+
+/**
+ * PostgreSQL seed: directory and app data. Authorization tuples live in
+ * OpenFGA (see OPENFGA_SEED_TUPLES below) — the parent relation is mirrored
+ * in documents.folder_id for display purposes only.
+ */
 
 interface SeedUser {
   id: string;
@@ -31,51 +36,46 @@ const FOLDERS = [
 ];
 
 const DOCUMENTS = [
-  {
-    id: 'doc-rfc',
-    title: 'Architecture RFC',
-    content: 'Proposal for the new event-driven architecture.',
-  },
-  { id: 'doc-onboarding', title: 'Onboarding Guide', content: 'Welcome! Here is how to get started.' },
-  { id: 'doc-logo', title: 'Logo Proposal', content: 'Three variants for the new logo.' },
-  { id: 'doc-roadmap', title: 'Secret Roadmap', content: 'Confidential Q4 roadmap.' },
+  { id: 'doc-rfc', title: 'Architecture RFC', content: 'Proposal for the new event-driven architecture.', folderId: 'f-proj' },
+  { id: 'doc-onboarding', title: 'Onboarding Guide', content: 'Welcome! Here is how to get started.', folderId: 'f-eng' },
+  { id: 'doc-logo', title: 'Logo Proposal', content: 'Three variants for the new logo.', folderId: 'f-design' },
+  { id: 'doc-roadmap', title: 'Secret Roadmap', content: 'Confidential Q4 roadmap.', folderId: 'f-private' },
 ];
 
-const user = (id: string): TupleSubject => ({ type: 'user', id });
-const groupMember = (id: string): TupleSubject => ({ type: 'group', id, relation: 'member' });
-const folderRef = (id: string): TupleSubject => ({ type: 'object', id, namespace: 'folder' });
+const user = (id: string) => `user:${id}`;
+const groupMember = (id: string) => `group:${id}#member`;
+const folderRef = (id: string) => `folder:${id}`;
 
-const TUPLES = [
+/** Seed tuples in OpenFGA native format (user, relation, object). */
+export const OPENFGA_SEED_TUPLES: { user: string; relation: string; object: string }[] = [
   // Folders
-  { namespace: 'folder', objectId: 'f-eng', relation: 'owner', subject: user('alice') },
-  { namespace: 'folder', objectId: 'f-eng', relation: 'viewer', subject: groupMember('eng') },
-  { namespace: 'folder', objectId: 'f-proj', relation: 'parent', subject: folderRef('f-eng') },
-  { namespace: 'folder', objectId: 'f-proj', relation: 'viewer', subject: groupMember('contractors') },
-  { namespace: 'folder', objectId: 'f-design', relation: 'owner', subject: user('eve') },
-  { namespace: 'folder', objectId: 'f-design', relation: 'editor', subject: groupMember('design') },
-  { namespace: 'folder', objectId: 'f-private', relation: 'owner', subject: user('alice') },
+  { user: user('alice'), relation: 'owner', object: 'folder:f-eng' },
+  { user: groupMember('eng'), relation: 'viewer', object: 'folder:f-eng' },
+  { user: folderRef('f-eng'), relation: 'parent', object: 'folder:f-proj' },
+  { user: groupMember('contractors'), relation: 'viewer', object: 'folder:f-proj' },
+  { user: user('eve'), relation: 'owner', object: 'folder:f-design' },
+  { user: groupMember('design'), relation: 'editor', object: 'folder:f-design' },
+  { user: user('alice'), relation: 'owner', object: 'folder:f-private' },
 
   // Documents: parent links
-  { namespace: 'document', objectId: 'doc-rfc', relation: 'parent', subject: folderRef('f-proj') },
-  { namespace: 'document', objectId: 'doc-onboarding', relation: 'parent', subject: folderRef('f-eng') },
-  { namespace: 'document', objectId: 'doc-logo', relation: 'parent', subject: folderRef('f-design') },
-  { namespace: 'document', objectId: 'doc-roadmap', relation: 'parent', subject: folderRef('f-private') },
+  { user: folderRef('f-proj'), relation: 'parent', object: 'document:doc-rfc' },
+  { user: folderRef('f-eng'), relation: 'parent', object: 'document:doc-onboarding' },
+  { user: folderRef('f-design'), relation: 'parent', object: 'document:doc-logo' },
+  { user: folderRef('f-private'), relation: 'parent', object: 'document:doc-roadmap' },
 
   // Documents: direct grants
-  { namespace: 'document', objectId: 'doc-rfc', relation: 'editor', subject: user('bob') },
-  { namespace: 'document', objectId: 'doc-rfc', relation: 'viewer', subject: groupMember('contractors') },
-  { namespace: 'document', objectId: 'doc-onboarding', relation: 'viewer', subject: user('carol') },
-];
+  { user: user('bob'), relation: 'editor', object: 'document:doc-rfc' },
+  { user: groupMember('contractors'), relation: 'viewer', object: 'document:doc-rfc' },
+  { user: user('carol'), relation: 'viewer', object: 'document:doc-onboarding' },
 
-const GROUP_MEMBERS = [
-  { namespace: 'group', objectId: 'eng', relation: 'member', subject: user('alice') },
-  { namespace: 'group', objectId: 'eng', relation: 'member', subject: user('bob') },
-  { namespace: 'group', objectId: 'design', relation: 'member', subject: user('carol') },
-  { namespace: 'group', objectId: 'design', relation: 'member', subject: user('eve') },
-  { namespace: 'group', objectId: 'contractors', relation: 'member', subject: user('dave') },
-  // Nested groups: eng and design are members of staff.
-  { namespace: 'group', objectId: 'staff', relation: 'member', subject: groupMember('eng') },
-  { namespace: 'group', objectId: 'staff', relation: 'member', subject: groupMember('design') },
+  // Groups (including nested groups)
+  { user: user('alice'), relation: 'member', object: 'group:eng' },
+  { user: user('bob'), relation: 'member', object: 'group:eng' },
+  { user: user('carol'), relation: 'member', object: 'group:design' },
+  { user: user('eve'), relation: 'member', object: 'group:design' },
+  { user: user('dave'), relation: 'member', object: 'group:contractors' },
+  { user: groupMember('eng'), relation: 'member', object: 'group:staff' },
+  { user: groupMember('design'), relation: 'member', object: 'group:staff' },
 ];
 
 export async function seed(db: DatabaseService): Promise<void> {
@@ -94,25 +94,9 @@ export async function seed(db: DatabaseService): Promise<void> {
     await db.query('INSERT INTO folders (id, name) VALUES ($1, $2)', [f.id, f.name]);
   }
   for (const d of DOCUMENTS) {
-    await db.query('INSERT INTO documents (id, title, content) VALUES ($1, $2, $3)', [
-      d.id,
-      d.title,
-      d.content,
-    ]);
-  }
-  for (const t of [...TUPLES, ...GROUP_MEMBERS]) {
     await db.query(
-      `INSERT INTO relation_tuples (namespace, object_id, relation, subject_type, subject_id, subject_namespace, subject_relation)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        t.namespace,
-        t.objectId,
-        t.relation,
-        t.subject.type,
-        t.subject.id,
-        t.subject.namespace ?? '',
-        t.subject.relation ?? '',
-      ],
+      'INSERT INTO documents (id, title, content, folder_id) VALUES ($1, $2, $3, $4)',
+      [d.id, d.title, d.content, d.folderId],
     );
   }
 }

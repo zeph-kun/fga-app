@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { FgaService } from '../fga/fga.service';
 
 export interface UserDto {
   id: string;
@@ -21,30 +22,37 @@ export interface FolderDto {
 
 @Injectable()
 export class DirectoryService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly fga: FgaService,
+  ) {}
 
   async listUsers(): Promise<UserDto[]> {
     const { rows } = await this.db.query<UserDto>('SELECT id, name, email, color FROM users ORDER BY id');
     return rows;
   }
 
+  /** Group members come from OpenFGA tuples (single source of truth). */
   async listGroups(): Promise<GroupDto[]> {
-    const { rows: groupRows } = await this.db.query<{ id: string; name: string }>(
+    const { rows } = await this.db.query<{ id: string; name: string }>(
       'SELECT id, name FROM groups ORDER BY id',
     );
-    const { rows: memberRows } = await this.db.query<{
-      object_id: string;
-      subject_type: string;
-      subject_id: string;
-    }>("SELECT object_id, subject_type, subject_id FROM relation_tuples WHERE namespace = 'group' AND relation = 'member' ORDER BY id");
-
-    return groupRows.map((group) => ({
-      id: group.id,
-      name: group.name,
-      members: memberRows
-        .filter((m) => m.object_id === group.id)
-        .map((m) => ({ type: m.subject_type as 'user' | 'group', id: m.subject_id })),
-    }));
+    const groups = await Promise.all(
+      rows.map(async (group) => {
+        const tuples = await this.fga.listTuples('group', group.id);
+        return {
+          id: group.id,
+          name: group.name,
+          members: tuples
+            .filter((tuple) => tuple.relation === 'member')
+            .map((tuple) => ({
+              type: tuple.subject.type === 'group' ? ('group' as const) : ('user' as const),
+              id: tuple.subject.id,
+            })),
+        };
+      }),
+    );
+    return groups;
   }
 
   async listFolders(): Promise<FolderDto[]> {

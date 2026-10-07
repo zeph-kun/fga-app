@@ -1,6 +1,7 @@
 # FGA Playground
 
-Petite application de démonstration de FGA (Fine-Grained Authorization), inspirée du modèle
+Petite application de démonstration de FGA (Fine-Grained Authorization) construite sur
+**OpenFGA** — le moteur open-source inspiré du papier
 [Zanzibar](https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/) de Google.
 
 ## Stack
@@ -9,11 +10,38 @@ Petite application de démonstration de FGA (Fine-Grained Authorization), inspir
 |---|---|---|
 | Frontend | Next.js 15 (App Router, React 19, Tailwind CSS v4, TypeScript strict) | http://localhost:3000 |
 | API | NestJS 11, TypeScript strict, class-validator | http://localhost:3001 |
+| Moteur d'autorisation | OpenFGA v1.22 (REST, playground) | http://localhost:8082 |
 | Auth | Keycloak 26 (realm `fga`, OAuth 2.0 code + PKCE) | http://localhost:8180 |
-| Base | PostgreSQL 17 | localhost:5433 |
+| Base | PostgreSQL 17 (données app + stockage OpenFGA) | localhost:5433 |
 
 Tout tourne dans Docker Compose. Rien n'est installé en local ; le code est monté en bind volume
-pour le hot-reload des deux serveurs de dev.
+pour le hot-reload des deux serveurs de dev. OpenFGA a besoin d'une étape de migration
+(service one-shot `openfga-migrate`).
+
+## Modèle d'autorisation
+
+Les tuples de relations vivent dans OpenFGA : `(object, relation, user)` avec users et
+usersets (`group:eng#member`) et liens `parent`. Le modèle est défini dans
+`backend/src/fga/model/` (JSON déployé + DSL lisible, à garder synchrones) :
+
+```text
+document.view  = viewer | editor | owner | parent->view
+document.edit  = editor | owner | parent->edit
+document.share = owner | parent->share
+document.delete = owner                 # volontairement NON hérité
+group.member   = member                 # groupes imbriqués via usersets
+```
+
+- un `editor` a automatiquement `view` (union) mais pas `share` ;
+- un document hérite des permissions de son dossier, et un dossier de son dossier parent ;
+- les groupes imbriqués fonctionnent nativement (`staff` contient `eng` et `design`) ;
+- la protection contre les cycles est gérée par OpenFGA lui-même.
+
+L'API NestJS est un client REST d'OpenFGA : store bootstrappé au démarrage (modèle
+re-poussé à chaque boot, tuples de seed écrits seulement si le store est vide), checks,
+lectures et écritures de tuples. Comme OpenFGA n'expose pas de trace d'évaluation,
+`/check` renvoie une `explanation` reconstruite par checks récursifs (tuple direct →
+groupe → héritage parent).
 
 ## Authentification
 
@@ -45,33 +73,6 @@ docker compose up --build
 Le schéma et un jeu de données de démonstration sont créés automatiquement au premier démarrage
 de l'API (`backend/src/database/seed.ts`).
 
-## Modèle d'autorisation
-
-Toute l'autorisation repose sur des tuples de relations stockés dans `relation_tuples` :
-`(namespace:objet, relation, sujet)`. Le sujet peut être un utilisateur (`user:bob`), un groupe
-avec une relation (`group:eng#member`), ou un autre objet (lien `parent` vers un dossier).
-
-Les permissions sont des unions de règles évaluées récursivement par le moteur
-(`backend/src/fga/engine.ts`) :
-
-```text
-document.view  = viewer | editor | owner | parent.view
-document.edit  = editor | owner | parent.edit
-document.share = owner | parent.share
-document.delete = owner
-folder.view    = viewer | editor | owner | parent.view
-group.member   = member | parent.member
-```
-
-Conséquences directes :
-
-- un `editor` a automatiquement `view` (union) mais pas `share` ;
-- un document hérite des permissions de son dossier, et un dossier de son dossier parent ;
-- les groupes imbriqués fonctionnent nativement (`staff` contient `eng` et `design`) ;
-- la protection contre les cycles empêche toute récursion infinie.
-
-Chaque appel `check` renvoie une trace d'évaluation lisible (affichée dans l'UI).
-
 ## API
 
 Toutes les routes exigent un token d'accès Keycloak (`Authorization: Bearer ...`),
@@ -79,12 +80,12 @@ sauf mention contraire. L'identité de l'appelant vient du token, jamais d'un pa
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/users`, `/groups`, `/folders` | Annuaire |
+| GET | `/users`, `/groups`, `/folders` | Annuaire (membres des groupes lus depuis OpenFGA) |
 | GET | `/documents` | Documents + carte de permissions de l'utilisateur authentifié |
-| POST | `/check` | `check(user, permission, namespace, object)` avec trace (playground : userId explicite) |
+| POST | `/check` | `check(user, permission, namespace, object)` avec explication (playground : userId explicite) |
 | GET | `/tuples?namespace=&objectId=` | Liste les tuples d'un objet |
 | POST | `/tuples` | Crée un tuple — exige `share` pour l'utilisateur authentifié (403 sinon) |
-| DELETE | `/tuples/:id` | Supprime un tuple — même garde `share` |
+| DELETE | `/tuples` | Supprime un tuple (clé complète dans le body) — même garde `share` |
 
 Obtenir un token pour tester (password grant, activé pour les tests uniquement) :
 
@@ -124,18 +125,30 @@ curl -s -X POST http://localhost:8180/realms/fga/protocol/openid-connect/token \
 docker compose exec api npm test
 ```
 
-Tests unitaires du moteur FGA (`backend/src/fga/fga-engine.spec.ts`) : tuples directs, unions,
-groupes, groupes imbriqués, héritage par dossiers, cycles, inconnus.
+Tests d'intégration contre OpenFGA (`backend/src/fga/openfga-integration.spec.ts`,
+store jetable par suite) : tuples directs, unions, groupes, groupes imbriqués,
+héritage par dossiers, delete non hérité, écriture/suppression idempotentes.
 
 ## Structure
 
 ```text
 backend/
-  src/database/       pool pg, schéma, seed
-  src/fga/            moteur Zanzibar-lite (engine, config, repository pg + in-memory, API)
-  src/directory/      annuaire (users, groups, folders)
+  src/database/       pool pg, schéma (+ migration one-shot vers OpenFGA), seed
+  src/fga/            client REST OpenFGA (openfga.client), service + explication,
+                      model/ (JSON déployé + DSL), tests d'intégration
+  src/auth/           guard JWT Keycloak
+  src/directory/      annuaire (users, groups via OpenFGA, folders)
   src/documents/      listing documents + permissions par utilisateur
 frontend/
-  src/lib/api.ts      client typé
-  src/components/     UserSwitcher, DocumentTable, PermissionChecker, SharePanel, GroupsOverview
+  src/lib/api.ts      client typé (via le proxy /api/fga)
+  src/components/     LoginScreen, DocumentTable, PermissionChecker, SharePanel, GroupsOverview
 ```
+
+## OpenFGA
+
+- Playground : http://localhost:8082/playground (store `fga`, modèle du projet)
+- API REST : http://localhost:8082 (stores, checks, writes — voir `openfga.client.ts`)
+- Stockage : tables OpenFGA dans notre base PostgreSQL (ok pour la démo ; en prod,
+  préférer une base dédiée)
+- L'image est distroless : pas de shell, d'où le service one-shot `openfga-migrate`
+  et l'absence de healthcheck

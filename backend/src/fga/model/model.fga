@@ -1,0 +1,42 @@
+# Authorization model — human-readable FGA DSL
+
+The deployed model is `openfga-model.json` (same semantics, JSON syntax expected by the
+OpenFGA API). This file is the equivalent DSL for reading and editing; update both
+together. Test the DSL in the OpenFGA Playground: http://localhost:8082/playground
+
+```fga
+model
+  schema 1.1
+
+type user
+
+type group
+  relations
+    define member: [user, group#member]
+
+type folder
+  relations
+    define owner: [user]
+    define editor: [user, group#member]
+    define viewer: [user, group#member]
+    define parent: [folder]
+
+    define view: viewer or editor or owner or parent->view
+    define edit: editor or owner or parent->edit
+    define share: owner or parent->share
+    # Deliberate design choice: delete is NOT inherited from the parent,
+    # only a direct owner of the document itself can delete it.
+    define delete: owner
+
+type document
+  relations
+    define owner: [user]
+    define editor: [user, group#member]
+    define viewer: [user, group#member]
+    define parent: [folder]
+
+    define view: viewer or editor or owner or parent->view
+    define edit: editor or owner or parent->edit
+    define share: owner or parent->share
+    define delete: owner
+```

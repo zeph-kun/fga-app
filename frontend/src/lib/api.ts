@@ -40,7 +40,7 @@ export interface DocumentItem {
 
 export interface CheckResponse {
   allowed: boolean;
-  trace: string[];
+  explanation: string[];
   userId: string;
   permission: string;
   namespace: string;
@@ -54,8 +54,8 @@ export interface TupleSubject {
   relation?: string;
 }
 
+/** OpenFGA identifies tuples by their key, not by an id. */
 export interface Tuple {
-  id: number;
   namespace: string;
   objectId: string;
   relation: string;
@@ -105,10 +105,11 @@ function post<T>(path: string, body: unknown): Promise<T> {
   }).then(handle<T>);
 }
 
-function del<T>(path: string): Promise<T> {
+function del<T>(path: string, body?: unknown): Promise<T> {
   return fetch(`${API_BASE}${path}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
   }).then(handle<T>);
 }
 
@@ -124,5 +125,6 @@ export const api = {
     get<Tuple[]>(`/tuples?namespace=${encodeURIComponent(namespace)}&objectId=${encodeURIComponent(objectId)}`),
   createTuple: (tuple: { namespace: string; objectId: string; relation: string; subject: TupleSubject }) =>
     post<Tuple>('/tuples', tuple),
-  deleteTuple: (id: number) => del<void>(`/tuples/${id}`),
+  deleteTuple: (tuple: { namespace: string; objectId: string; relation: string; subject: TupleSubject }) =>
+    del<void>('/tuples', tuple),
 };

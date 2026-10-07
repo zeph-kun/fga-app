@@ -59,3 +59,6 @@ export class CreateTupleDto {
   @Type(() => TupleSubjectDto)
   subject!: TupleSubjectDto;
 }
+
+/** OpenFGA identifies tuples by their key, not by an id. */
+export class DeleteTupleDto extends CreateTupleDto {}

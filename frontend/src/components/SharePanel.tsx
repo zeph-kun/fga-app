@@ -59,11 +59,16 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
     }
   }
 
-  async function revoke(tupleId: number): Promise<void> {
+  async function revoke(tuple: Tuple): Promise<void> {
     setBusy(true);
     setError(null);
     try {
-      await api.deleteTuple(tupleId);
+      await api.deleteTuple({
+        namespace: tuple.namespace,
+        objectId: tuple.objectId,
+        relation: tuple.relation,
+        subject: tuple.subject,
+      });
       await loadTuples();
       onChanged();
     } catch (err) {
@@ -112,7 +117,7 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
           .filter((tuple) => tuple.relation === 'parent')
           .map((tuple) => (
             <li
-              key={tuple.id}
+              key={`${tuple.relation}:${tuple.subject.namespace}:${tuple.subject.id}`}
               className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-400"
             >
               parent : {tuple.subject.namespace}:{tuple.subject.id} (héritage des permissions)
@@ -120,7 +125,7 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
           ))}
         {directTuples.map((tuple) => (
           <li
-            key={tuple.id}
+            key={`${tuple.relation}:${subjectLabel(tuple)}`}
             className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs"
           >
             <span>
@@ -132,7 +137,7 @@ export default function SharePanel({ document, users, groups, onChanged }: Props
             <button
               type="button"
               disabled={!canShare || busy}
-              onClick={() => void revoke(tuple.id)}
+              onClick={() => void revoke(tuple)}
               className="rounded px-2 py-0.5 text-rose-400 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               révoquer
